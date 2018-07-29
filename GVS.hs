@@ -1,17 +1,17 @@
-module GVS (getGVS, sendCommand, closeGVS) where
+module GVS (DENKEN(..), GVS, getGVS, sendCommand, makeJanken, closeGVS) where
 
 import System.Hardware.Serialport
 import Data.Bits (shiftL, shiftR, (.&.))
 import Data.ByteString (pack)
 import Data.Word (Word8)
-import Control.Monad (forM_)
+import Control.Monad (forM_, forever)
 import Control.Concurrent (threadDelay)
 
 type Port = String
 type GVS = SerialPort
 type Current = Int
 type Channel = Int
-data DENKEN = Goo | Scissors | Par deriving (Eq,Show)
+data DENKEN = Rock | Scissors | Paper | Unknown deriving (Eq,Show)
 
 getGVS :: Port -> IO GVS
 getGVS port = openSerial port defaultSerialSettings{ commSpeed = CS115200 }
@@ -35,9 +35,19 @@ makeRectangleWave gvs ch i interval = forM_ [1..20] f where
 
 
 makeJanken :: GVS -> DENKEN -> IO ()
-makeJanken gvs Goo = makeRectangleWave gvs 0 4000 50
-makeJanken gvs Scissors = makeRectangleWave gvs 0 4000 50
-makeJanken gvs Par = makeRectangleWave gvs 0 4000 50
+makeJanken gvs Rock = makeRectangleWave gvs 0 3000 50
+makeJanken gvs Paper = makeRectangleWave gvs 1 3000 50
+makeJanken gvs Scissors = forM_ [1..20] f where
+	interval = 50
+	f _ = do
+		_ <- sendCommand gvs 0 2000
+		_ <- sendCommand gvs 1 4000
+		threadDelay (interval * 1000)
+		_ <- sendCommand gvs 0 0
+		_ <- sendCommand gvs 1 0
+		threadDelay (interval * 1000)
+
+testJanken gvs ch = makeRectangleWave gvs ch 3000 50
 
 closeGVS :: GVS -> IO ()
 closeGVS = closeSerial
